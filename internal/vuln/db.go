@@ -3,92 +3,73 @@ package vuln
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 
-	_ "modernc.org/sqlite" // Pure Go SQLite driver
+	_ "modernc.org/sqlite" // Import sqlite driver
 )
 
-// DBClient handles interactions with the vulnerability database
-type DBClient struct {
-	db *sql.DB
+// DB represents the vulnerability database
+type DB struct {
+	conn *sql.DB
 }
 
-// NewDBClient initializes a connection and ensures the schema exists
-func NewDBClient(path string) (*DBClient, error) {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open db: %w", err)
-	}
-
-	client := &DBClient{db: db}
-	if err := client.initSchema(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to init schema: %w", err)
-	}
-
-	return client, nil
-}
-
-// initSchema creates the necessary tables if they don't exist
-func (c *DBClient) initSchema() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS vulnerabilities (
-		id TEXT PRIMARY KEY,
-		summary TEXT,
-		details TEXT,
-		published_at DATETIME,
-		modified_at DATETIME,
-		severity TEXT,
-		score REAL
-	);
-
-	CREATE TABLE IF NOT EXISTS cpe_index (
-		cpe TEXT,
-		vuln_id TEXT,
-		version_start TEXT,
-		version_end TEXT,
-		FOREIGN KEY(vuln_id) REFERENCES vulnerabilities(id)
-	);
-	
-	CREATE INDEX IF NOT EXISTS idx_cpe ON cpe_index(cpe);
-	`
-	_, err := c.db.Exec(schema)
-	return err
-}
-
-// Vulnerability represents a security issue
-type Vulnerability struct {
-	ID       string
-	Summary  string
-	Severity string
-	Score    float64
-}
-
-// GetVulnerabilities returns vulns for a given CPE
-func (c *DBClient) GetVulnerabilities(cpe string) ([]Vulnerability, error) {
-	query := `
-		SELECT v.id, v.summary, v.severity, v.score 
-		FROM vulnerabilities v
-		JOIN cpe_index i ON v.id = i.vuln_id
-		WHERE i.cpe = ?
-	`
-	rows, err := c.db.Query(query, cpe)
+// NewDB opens or creates the vulnerability database
+func NewDB() (*DB, error) {
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	dbPath := filepath.Join(home, ".parashu", "parashu.db")
 
-	var vulns []Vulnerability
-	for rows.Next() {
-		var v Vulnerability
-		if err := rows.Scan(&v.ID, &v.Summary, &v.Severity, &v.Score); err != nil {
-			return nil, err
-		}
-		vulns = append(vulns, v)
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		return nil, err
 	}
-	return vulns, nil
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := initSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	return &DB{conn: db}, nil
+}
+
+func initSchema(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS cves (
+		id TEXT PRIMARY KEY,
+		description TEXT,
+		severity TEXT,
+		cvss REAL
+	);
+	CREATE TABLE IF NOT EXISTS cpes (
+		cpe TEXT,
+		cve_id TEXT,
+		FOREIGN KEY(cve_id) REFERENCES cves(id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_cpe ON cpes(cpe);
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+// Update downloads the latest vulnerability definitions (Stub)
+func (d *DB) Update(source string, force bool) error {
+	// TODO: meaningful update logic (download format, etc.)
+	fmt.Printf("Mock: Downloading definitions from %s (force=%v)...\n", source, force)
+
+	// Mock Insert
+	_, err := d.conn.Exec(`INSERT OR REPLACE INTO cves (id, description, severity, cvss) VALUES ('CVE-2023-MOCK', 'Mock Vulnerability', 'HIGH', 9.8)`)
+	return err
 }
 
 // Close closes the database connection
-func (c *DBClient) Close() error {
-	return c.db.Close()
+func (d *DB) Close() error {
+	return d.conn.Close()
 }

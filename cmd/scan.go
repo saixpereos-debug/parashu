@@ -2,8 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
+
+	"parashu/internal/adaptive"
+	"parashu/internal/output"
+	"parashu/internal/scanner"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -11,6 +18,7 @@ import (
 
 var (
 	portsFlag       string
+	profileFlag     string // New flag for adaptive profile
 	timeoutFlag     time.Duration
 	rateLimitFlag   int
 	outputFlag      string
@@ -52,18 +60,78 @@ detects services, and identifies vulnerabilities using the local offline databas
 			onlineFallback = false
 		}
 
-		// Prepare Scan Options (Placeholder for now)
-		fmt.Println("Starting Parashu Scan...")
-		fmt.Printf("Targets: %v (File: %s)\n", args, targetFileFlag)
-		fmt.Printf("Ports: %s\n", portsFlag)
-		fmt.Printf("Rate Limit: %d\n", rateLimitFlag)
-		fmt.Printf("Timeout: %s\n", timeoutFlag)
-		fmt.Printf("Output: %s (File: %s)\n", outputFlag, outputFileFlag)
+		// Initialize Output Writer
+		writer, err := output.NewWriter(outputFlag)
+		if err != nil {
+			fmt.Printf("Error initializing output: %v\n", err)
+			os.Exit(1)
+		}
 
-		// TODO: Parse Targets
-		// TODO: Parse Ports
-		// TODO: Initialize Scanner
-		// TODO: Run Scan
+		var outWriter = os.Stdout
+		if outputFileFlag != "" {
+			f, err := os.Create(outputFileFlag)
+			if err != nil {
+				fmt.Printf("Error creating output file: %v\n", err)
+				os.Exit(1)
+			}
+			defer f.Close()
+			outWriter = f
+		}
+
+		// Parse Targets
+		targets, err := parseTargets(args, targetFileFlag)
+		if err != nil {
+			fmt.Printf("Error parsing targets: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Parse Ports
+		ports, err := parsePorts(portsFlag)
+		if err != nil {
+			fmt.Printf("Error parsing ports: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Starting Parashu Scan on %d targets with %d ports (Profile: %s)...\n", len(targets), len(ports), profileFlag)
+
+		// Initialize Scanner with Profile
+		srv := scanner.NewScanner(adaptive.ProfileName(profileFlag))
+
+		fullResult := &output.ScanResult{
+			ScanID:    fmt.Sprintf("scan-%d", time.Now().Unix()),
+			Timestamp: time.Now(),
+			Targets:   targets,
+			Results:   []output.HostResult{},
+		}
+
+		// Run Scan
+		// TODO: Parallelize hosts if needed? For now, sequential host scan, concurrent ports.
+		start := time.Now()
+		for _, target := range targets {
+			res, err := srv.Scan(cmd.Context(), target, ports)
+			if err != nil {
+				fmt.Printf("Error scanning %s: %v\n", target, err)
+				continue
+			}
+			// Only append if ports were found? Or always?
+			// Usually report even if down? But Scan assumes up.
+			if len(res.Ports) > 0 {
+				fullResult.Results = append(fullResult.Results, res)
+			}
+		}
+
+		// Fill Summary
+		fullResult.Summary = output.ScanSummary{
+			HostsScanned: len(targets),
+			OpenPorts:    countOpenPorts(fullResult.Results),
+		}
+
+		// Write Output
+		if err := writer.Write(fullResult, outWriter); err != nil {
+			fmt.Printf("Error writing output: %v\n", err)
+		}
+
+		fmt.Printf("\nScan completed in %s\n", time.Since(start))
 	},
 }
 
@@ -72,8 +140,9 @@ func init() {
 
 	// Define Flags
 	scanCmd.Flags().StringVar(&portsFlag, "ports", "top1000", "Ports to scan (top1000, common, all, range 1-65535, or list 22,80)")
-	scanCmd.Flags().DurationVar(&timeoutFlag, "timeout", 2*time.Second, "Timeout per port scan")
-	scanCmd.Flags().IntVar(&rateLimitFlag, "rate-limit", 100, "Concurrent connections limit")
+	scanCmd.Flags().StringVar(&profileFlag, "profile", "balanced", "Scan profile (stealth, balanced, aggressive)")
+	scanCmd.Flags().DurationVar(&timeoutFlag, "timeout", 2*time.Second, "Timeout per port scan (Override by profile usually)")
+	scanCmd.Flags().IntVar(&rateLimitFlag, "rate-limit", 100, "Concurrent connections limit (Override by profile usually)")
 	scanCmd.Flags().StringVar(&outputFlag, "output", "table", "Output format (table, json, html)")
 	scanCmd.Flags().StringVar(&outputFileFlag, "output-file", "", "Write output to file")
 
@@ -91,4 +160,105 @@ func init() {
 	viper.BindPFlag("rate-limit", scanCmd.Flags().Lookup("rate-limit"))
 	viper.BindPFlag("online-fallback", scanCmd.Flags().Lookup("online-fallback"))
 	viper.BindPFlag("api-key", scanCmd.Flags().Lookup("api-key"))
+}
+
+// Helpers
+
+func parseTargets(args []string, file string) ([]string, error) {
+	var targets []string
+
+	// From Args
+	for _, arg := range args {
+		if strings.Contains(arg, "/") {
+			// CIDR
+			ip, ipnet, err := net.ParseCIDR(arg)
+			if err != nil {
+				return nil, fmt.Errorf("invalid CIDR %s: %v", arg, err)
+			}
+
+			// Simple expansion
+			for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+				targets = append(targets, ip.String())
+			}
+			// Remove network and broadcast? Usually skipping .0 and .255 for /24
+			// This generic inc includes them. Good enough for v1.
+		} else {
+			// Single IP or Host
+			targets = append(targets, arg)
+		}
+	}
+
+	// From File
+	if file != "" {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				targets = append(targets, line)
+			}
+		}
+	}
+
+	return targets, nil
+}
+
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
+func parsePorts(desc string) ([]int, error) {
+	if desc == "top1000" {
+		// Mock implementation - real list is long
+		return []int{21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3306, 3389, 5432, 5900, 8080}, nil
+	}
+	if desc == "all" {
+		var ports []int
+		for i := 1; i <= 65535; i++ {
+			ports = append(ports, i)
+		}
+		return ports, nil
+	}
+
+	var ports []int
+	parts := strings.Split(desc, ",")
+	for _, part := range parts {
+		if strings.Contains(part, "-") {
+			rangeParts := strings.Split(part, "-")
+			start, err := strconv.Atoi(rangeParts[0])
+			if err != nil {
+				return nil, err
+			}
+			end, err := strconv.Atoi(rangeParts[1])
+			if err != nil {
+				return nil, err
+			}
+			for i := start; i <= end; i++ {
+				ports = append(ports, i)
+			}
+		} else {
+			p, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, err
+			}
+			ports = append(ports, p)
+		}
+	}
+	return ports, nil
+}
+
+func countOpenPorts(results []output.HostResult) int {
+	count := 0
+	for _, h := range results {
+		count += len(h.Ports) // Assuming only open ports are in the list
+	}
+	return count
 }

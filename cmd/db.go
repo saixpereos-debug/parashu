@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"parashu/internal/vuln"
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +27,18 @@ var dbUpdateCmd = &cobra.Command{
 	Short: "Update the vulnerability database",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("Updating vulnerability database (Source: %s, Force: %v)...\n", sourceFlag, forceFlag)
-		// TODO: Trigger update logic
+		db, err := vuln.NewDB()
+		if err != nil {
+			fmt.Printf("Error initializing DB: %v\n", err)
+			os.Exit(1)
+		}
+		defer db.Close()
+
+		if err := db.Update(sourceFlag, forceFlag); err != nil {
+			fmt.Printf("Error updating DB: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Database updated successfully.")
 	},
 }
 
