@@ -1,64 +1,53 @@
-# Parashu
-**Offline-First Network Service Vulnerability Scanner**
+## ✨ Key Features
 
-Parashu is a high-performance, Modern Go-based vulnerability scanner designed for environments where accuracy, speed, and offline capability are paramount. It pairs active scanning with a local, highly-optimized vulnerability database.
+- **🚀 High Performance**: Built in Go with extreme concurrency for lightning-fast port discovery.
+- **🔌 Plugin Architecture**: Easily extendable with custom scanners and banner grabbers.
+- **💾 Offline-First**: Fully self-contained CVE and Exploit database for air-gapped security.
+- **🛡️ Advanced Evasion**: 
+    - **Timing Profiles**: Nmap-style `-T0` (Paranoid) to `-T5` (Insane) presets.
+    - **Ping Suppression**: Silent host discovery via `-n`.
+    - **Proxy Support**: Full SOCKS5 proxy routing for anonymous scanning.
+    - **Packet Padding**: Append random data to probes to evade length-based IDS signatures.
+- **🕵️ Red Team Tooling**:
+    - **Layer Scanning**: Granular scanning across all 7 OSI layers (Physical to Application).
+    - **Exploit Intelligence**: Automated matching of vulnerabilities to verified exploit scripts.
+    - **Prioritized Results**: Smart scoring based on exploit verification and Metasploit availability.
 
-## When to Use Parashu
+## 🛠 Usage Examples
 
-Parashu excels in scenarios where traditional online-dependent scanners struggle:
-
-### 🔒 Air-Gapped & Secure Networks
-**The Challenge:** High-security zones (defense, finance, critical infrastructure) often have no internet access, breaking scanners that rely on real-time API queries.
-**Parashu Solution:** Uses a fully self-contained local database. Update the DB on a connected machine, transfer the binary + DB file, and scan without a single outbound packet.
-
-### 🚀 CI/CD Pipelines
-**The Challenge:** VAPT stages in pipelines need to be fast and deterministic. Waiting for external NVD API rate limits or network latency slows down builds.
-**Parashu Solution:** Hits a local SQLite database for instant CVE lookups, ensuring consistent execution times and no external dependencies.
-
-### 🕵️ Stealth Red Teaming
-**The Challenge:** Constant DNS queries and HTTP requests to vulnerability feeds during a scan can trigger SOC alerts and reveal your toolkit's activity.
-**Parashu Solution:** Silent operation. Only traffic sent is to the direct target. No noise, no leaks.
-
-### ⚡ Rapid Triage
-**The Challenge:** You need to scan a /24 subnet in minutes, not hours, to identify low-hanging fruit (known CVEs in unpatched services).
-**Parashu Solution:** Highly concurrent (Go routines), optimized port scanning, and instant banner-to-CPE-to-CVE mapping.
-
-## Quick Start
-
-### 1. Install
+### 1. Basic & Range Scanning
 ```bash
-go install github.com/saixpereos-debug/parashu@latest
-```
-
-### 2. Update Database
-Initialize the local vulnerability database (requires internet once):
-```bash
-parashu db update
-```
-
-### 3. Sync Exploits (Optional)
-Equip Parashu with tens of thousands of exploit scripts:
-```bash
-parashu exploit sync
-```
-
-### 4. Scan
-**Quick Scan (Top 1000 ports):**
-```bash
+# Scan Top 1000 ports
 parashu scan 192.168.1.10
+
+# Scan all 65k ports on a CIDR range
+parashu scan 10.0.0.0/24 --ports all
 ```
 
-**Vulnerability Scan with Exploit Matching:**
+### 2. Stealth & Evasion
 ```bash
-parashu scan 10.0.0.0/24 --exploit-match
+# Paranoid timing through a proxy with packet padding
+parashu scan 192.168.1.10 -T0 --proxies 127.0.0.1:9050 --data-length 128 -n
 ```
 
-**CIDR Range Scan:**
+### 3. Red Team Operations
 ```bash
-parashu scan 10.0.0.0/24 --output html --output-file report.html
+# Layer-specific scan for Application layer endpoints
+parashu layer-scan --layer application --target 192.168.1.50
+
+# Vulnerability scan with automated exploit matching
+parashu scan 10.0.1.0/24 --exploit-match
 ```
 
-**Stealth Banner Grab (No CVE lookup):**
+### 4. Exploit Intelligence
 ```bash
-parashu scan 10.0.0.5 --banners-only
+# Sync local exploit database
+parashu exploit sync
+
+# Search and retrieve exploit details
+parashu exploit search websphere
+parashu exploit get 16929
 ```
+
+## 📊 Documentation
+For a deep dive into all commands and advanced configurations, check out the [User Manual](USER_MANUAL.md).
