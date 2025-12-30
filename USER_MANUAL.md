@@ -127,8 +127,44 @@ parashu scan 10.0.0.0/24 --exclude 10.0.0.1,10.0.0.2
 
 ---
 
-## 🛡️ Stealth & Enrichment
+## 🛡️ Stealth & Evasion (Advanced)
 
+New in v1.1.0: Advanced features to evade firewalls and IDS.
+
+### Ping Suppression
+Skip host discovery/resolution to avoid early detection:
+```bash
+parashu scan 192.168.1.1 -n
+# or
+parashu scan 192.168.1.1 --no-ping
+```
+
+### Advanced Timing (Nmap-style)
+Use shorthand timing profiles:
+- `-T0`: Paranoid (extremely slow, serial)
+- `-T1`: Sneaky
+- `-T2`: Polite
+- `-T3`: Normal (default)
+- `-T4`: Aggressive
+- `-T5`: Insane (very fast)
+
+```bash
+parashu scan 192.168.1.1 -T0
+```
+
+### Proxy Routing
+Route your scans through SOCKS5 proxies:
+```bash
+parashu scan 192.168.1.1 --proxies 127.0.0.1:9050
+```
+
+### Packet Padding (Evasion)
+Add extra data to your probe packets to evade length-based signatures:
+```bash
+parashu scan 192.168.1.1 --data-length 200
+```
+
+### Banners and Fallbacks
 - `--banners-only`: Only grab service banners, skip vulnerability lookups.
 - `--online-fallback`: Query online APIs if a service is not found in the local DB.
 - `--api-key`: Provide your API key for online enrichment.

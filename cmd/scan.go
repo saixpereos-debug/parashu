@@ -29,6 +29,20 @@ var (
 	excludeFlag     string
 	excludeFileFlag string
 	targetFileFlag  string
+
+	// Stealth & Evasion Flags
+	noPingFlag     bool
+	proxiesFlag    string
+	dataLengthFlag int
+	scanDelayFlag  string
+
+	// Shorthand Timing
+	t0Flag bool
+	t1Flag bool
+	t2Flag bool
+	t3Flag bool
+	t4Flag bool
+	t5Flag bool
 )
 
 // scanCmd represents the scan command
@@ -92,10 +106,41 @@ detects services, and identifies vulnerabilities using the local offline databas
 			os.Exit(1)
 		}
 
-		fmt.Printf("Starting Parashu Scan on %d targets with %d ports (Profile: %s)...\n", len(targets), len(ports), profileFlag)
+		// Determine Profile
+		profile := profileFlag
+		if t0Flag {
+			profile = "0"
+		} else if t1Flag {
+			profile = "1"
+		} else if t2Flag {
+			profile = "2"
+		} else if t3Flag {
+			profile = "3"
+		} else if t4Flag {
+			profile = "4"
+		} else if t5Flag {
+			profile = "5"
+		}
+
+		fmt.Printf("Starting Parashu Scan on %d targets with %d ports (Profile: %s)...\n", len(targets), len(ports), profile)
 
 		// Initialize Scanner with Profile
-		srv := scanner.NewScanner(adaptive.ProfileName(profileFlag))
+		srv := scanner.NewScanner(adaptive.ProfileName(profile))
+
+		// Apply Stealth Overrides
+		srv.NoPing = noPingFlag
+		if dataLengthFlag > 0 {
+			srv.DataLength = dataLengthFlag
+		}
+		if proxiesFlag != "" {
+			srv.Proxies = strings.Split(proxiesFlag, ",")
+		}
+		if scanDelayFlag != "" {
+			d, err := time.ParseDuration(scanDelayFlag)
+			if err == nil {
+				srv.Engine.Config.ScanDelay = d
+			}
+		}
 
 		fullResult := &output.ScanResult{
 			ScanID:    fmt.Sprintf("scan-%d", time.Now().Unix()),
@@ -153,6 +198,20 @@ func init() {
 	scanCmd.Flags().StringVar(&excludeFlag, "exclude", "", "Comma-separated IPs/CIDRs to exclude")
 	scanCmd.Flags().StringVar(&excludeFileFlag, "exclude-file", "", "File containing IPs to exclude")
 	scanCmd.Flags().StringVarP(&targetFileFlag, "file", "f", "", "File containing targets to scan")
+
+	// Stealth Flags
+	scanCmd.Flags().BoolVarP(&noPingFlag, "no-ping", "n", false, "Suppress ping/host discovery (Pn)")
+	scanCmd.Flags().StringVar(&proxiesFlag, "proxies", "", "Comma-separated list of SOCKS5 proxies")
+	scanCmd.Flags().IntVar(&dataLengthFlag, "data-length", 0, "Append random data to sent packets")
+	scanCmd.Flags().StringVar(&scanDelayFlag, "scan-delay", "", "Delay between probes (e.g. 10ms, 1s)")
+
+	// Timing Shorthands
+	scanCmd.Flags().BoolVar(&t0Flag, "T0", false, "Paranoid timing")
+	scanCmd.Flags().BoolVar(&t1Flag, "T1", false, "Sneaky timing")
+	scanCmd.Flags().BoolVar(&t2Flag, "T2", false, "Polite timing")
+	scanCmd.Flags().BoolVar(&t3Flag, "T3", false, "Normal timing")
+	scanCmd.Flags().BoolVar(&t4Flag, "T4", false, "Aggressive timing")
+	scanCmd.Flags().BoolVar(&t5Flag, "T5", false, "Insane timing")
 
 	// Bind flags to viper for config precedence
 	viper.BindPFlag("ports", scanCmd.Flags().Lookup("ports"))

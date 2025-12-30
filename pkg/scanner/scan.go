@@ -12,6 +12,7 @@ import (
 	"github.com/saixpereos-debug/parashu/pkg/output"
 
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/net/proxy"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -19,6 +20,9 @@ import (
 type Scanner struct {
 	Engine      *adaptive.Engine
 	Fingerprint *fingerprint.Engine
+	NoPing      bool
+	Proxies     []string
+	DataLength  int
 }
 
 // NewScanner creates a new scanner instance with adaptive capabilities
@@ -37,10 +41,12 @@ func (s *Scanner) Scan(ctx context.Context, target string, ports []int) (output.
 		Ports: []output.PortResult{},
 	}
 
-	// Resolve Hostname
-	names, _ := net.LookupAddr(target)
-	if len(names) > 0 {
-		result.Hostname = strings.TrimSuffix(names[0], ".")
+	// Resolve Hostname (Ping Suppression check)
+	if !s.NoPing {
+		names, _ := net.LookupAddr(target)
+		if len(names) > 0 {
+			result.Hostname = strings.TrimSuffix(names[0], ".")
+		}
 	}
 
 	resultsChan := make(chan output.PortResult, len(ports))
@@ -89,11 +95,15 @@ func (s *Scanner) Scan(ctx context.Context, target string, ports []int) (output.
 			// Dynamic Timeout
 			timeout := s.Engine.Timeout()
 
+			// Scan Delay (from Profile)
+			if s.Engine.Config.ScanDelay > 0 {
+				time.Sleep(s.Engine.Config.ScanDelay)
+			}
+
 			isOpen, banner := s.checkPort(target, port, timeout)
 
 			// Feedback to Engine
-			s.Engine.RecordResult(time.Since(start), isOpen || !isOpen) // Only fail if network error, strictly.
-			// Ideally checkPort returns err.
+			s.Engine.RecordResult(time.Since(start), true) // For now, assume success if it didn't panic
 
 			if isOpen {
 				// Fingerprint
@@ -131,11 +141,36 @@ func (s *Scanner) Scan(ctx context.Context, target string, ports []int) (output.
 // checkPort checks if a port is open and attempts banner grabbing
 func (s *Scanner) checkPort(target string, port int, timeout time.Duration) (bool, string) {
 	address := net.JoinHostPort(target, fmt.Sprintf("%d", port))
-	conn, err := net.DialTimeout("tcp", address, timeout)
+
+	var conn net.Conn
+	var err error
+
+	// Proxy Support
+	if len(s.Proxies) > 0 {
+		// Use the first proxy for now (could be randomized/cycled)
+		proxyAddr := s.Proxies[0]
+		dialer, pErr := proxy.SOCKS5("tcp", proxyAddr, nil, proxy.Direct)
+		if pErr == nil {
+			conn, err = dialer.Dial("tcp", address)
+		} else {
+			// Fallback to direct or just return error?
+			// Let's return error if proxy is specified but fails.
+			return false, ""
+		}
+	} else {
+		conn, err = net.DialTimeout("tcp", address, timeout)
+	}
+
 	if err != nil {
 		return false, ""
 	}
 	defer conn.Close()
+
+	// Data Length Padding (Evasion)
+	if s.DataLength > 0 {
+		padding := make([]byte, s.DataLength)
+		_, _ = conn.Write(padding) // Send padding to evade length signatures
+	}
 
 	// Banner Grabbing
 	banner := ""
