@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"parashu/internal/adaptive"
-	"parashu/pkg/output"
-	"parashu/pkg/scanner"
+	"github.com/saixpereos-debug/parashu/internal/adaptive"
+	"github.com/saixpereos-debug/parashu/pkg/output"
+	"github.com/saixpereos-debug/parashu/pkg/scanner"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

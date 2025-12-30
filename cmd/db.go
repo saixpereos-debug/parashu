@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"parashu/pkg/vuln"
+	"github.com/saixpereos-debug/parashu/pkg/vuln"
 
 	"github.com/spf13/cobra"
 )

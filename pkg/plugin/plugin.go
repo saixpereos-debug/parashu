@@ -2,7 +2,7 @@ package plugin
 
 import (
 	"context"
-	"parashu/pkg/output"
+	"github.com/saixpereos-debug/parashu/pkg/output"
 )
 
 // Plugin represents a generic Parashu plugin

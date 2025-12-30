@@ -1,4 +1,4 @@
-module parashu
+module github.com/saixpereos-debug/parashu
 
 go 1.24.0
 

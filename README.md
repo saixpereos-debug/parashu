@@ -27,7 +27,7 @@ Parashu excels in scenarios where traditional online-dependent scanners struggle
 
 ### 1. Install
 ```bash
-go install github.com/parashu/parashu@latest
+go install github.com/saixpereos-debug/parashu@latest
 ```
 
 ### 2. Update Database

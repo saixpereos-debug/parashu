@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"parashu/internal/adaptive"
-	"parashu/pkg/fingerprint"
-	"parashu/pkg/output"
+	"github.com/saixpereos-debug/parashu/internal/adaptive"
+	"github.com/saixpereos-debug/parashu/pkg/fingerprint"
+	"github.com/saixpereos-debug/parashu/pkg/output"
 
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/errgroup"

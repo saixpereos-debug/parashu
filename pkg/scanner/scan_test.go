@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"parashu/internal/adaptive"
+	"github.com/saixpereos-debug/parashu/internal/adaptive"
 )
 
 func TestScanner_Scan(t *testing.T) {

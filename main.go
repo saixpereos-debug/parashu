@@ -1,6 +1,6 @@
 package main
 
-import "parashu/cmd"
+import "github.com/saixpereos-debug/parashu/cmd"
 
 func main() {
 	cmd.Execute()

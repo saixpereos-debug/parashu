@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"parashu/internal/config"
+	"github.com/saixpereos-debug/parashu/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"parashu/pkg/output"
-	"parashu/pkg/plugin"
+	"github.com/saixpereos-debug/parashu/pkg/output"
+	"github.com/saixpereos-debug/parashu/pkg/plugin"
 )
 
 type BannerGrabberPlugin struct{}
