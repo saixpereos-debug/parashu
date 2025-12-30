@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/saixpereos-debug/parashu/internal/adaptive"
+	"github.com/saixpereos-debug/parashu/pkg/exploit"
 	"github.com/saixpereos-debug/parashu/pkg/output"
 	"github.com/saixpereos-debug/parashu/pkg/scanner"
+	"github.com/saixpereos-debug/parashu/pkg/vuln"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,6 +45,8 @@ var (
 	t3Flag bool
 	t4Flag bool
 	t5Flag bool
+
+	exploitMatchFlag bool
 )
 
 // scanCmd represents the scan command
@@ -176,6 +180,25 @@ detects services, and identifies vulnerabilities using the local offline databas
 			fmt.Printf("Error writing output: %v\n", err)
 		}
 
+		// Match exploits if requested
+		if exploitMatchFlag {
+			fmt.Println("\n[+] Matching discovered vulnerabilities with known exploits...")
+			db, err := vuln.NewDB()
+			if err == nil {
+				defer db.Close()
+				matcher := exploit.NewExploitMatcher(db)
+				for _, hostRes := range fullResult.Results {
+					matches, _ := matcher.MatchExploits(hostRes)
+					if len(matches) > 0 {
+						fmt.Printf("\nExploit Matches for %s:\n", hostRes.IP)
+						for _, m := range matches {
+							fmt.Printf("  - %s (Priority: %d, Match: %s)\n", m.Exploit.Title, m.Priority, m.Match.Evidence)
+						}
+					}
+				}
+			}
+		}
+
 		fmt.Printf("\nScan completed in %s\n", time.Since(start))
 	},
 }
@@ -219,6 +242,8 @@ func init() {
 	viper.BindPFlag("rate-limit", scanCmd.Flags().Lookup("rate-limit"))
 	viper.BindPFlag("online-fallback", scanCmd.Flags().Lookup("online-fallback"))
 	viper.BindPFlag("api-key", scanCmd.Flags().Lookup("api-key"))
+
+	scanCmd.Flags().BoolVar(&exploitMatchFlag, "exploit-match", false, "Match vulnerabilities with known exploits")
 }
 
 // Helpers
@@ -229,20 +254,25 @@ func parseTargets(args []string, file string) ([]string, error) {
 	// From Args
 	for _, arg := range args {
 		if strings.Contains(arg, "/") {
-			// CIDR
+			// CIDR (v4 or v6)
 			ip, ipnet, err := net.ParseCIDR(arg)
 			if err != nil {
 				return nil, fmt.Errorf("invalid CIDR %s: %v", arg, err)
 			}
 
-			// Simple expansion
+			// For simplicity in REDTEAM expansion, we only expand small ranges automatically
+			// Large v6 ranges are not expanded here.
+			ones, bits := ipnet.Mask.Size()
+			if bits-ones > 10 { // Limit to 1024 hosts per range for safety
+				fmt.Printf("Warning: Skipping massive CIDR expansion for %s (too many hosts)\n", arg)
+				continue
+			}
+
 			for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 				targets = append(targets, ip.String())
 			}
-			// Remove network and broadcast? Usually skipping .0 and .255 for /24
-			// This generic inc includes them. Good enough for v1.
 		} else {
-			// Single IP or Host
+			// Single IP (v4/v6) or Host
 			targets = append(targets, arg)
 		}
 	}

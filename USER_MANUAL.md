@@ -171,11 +171,35 @@ parashu scan 192.168.1.1 --data-length 200
 
 ---
 
-## 💡 Pro Tips
+## 🛠️ Exploit Database Integration
 
-1. **Shell Completion**: Enable auto-completion for your shell:
-   ```bash
-   parashu completion bash > /etc/bash_completion.d/parashu
-   ```
-2. **Offline Mode**: After running `parashu db update`, you can go fully offline!
-3. **Piping**: Use `--output json` to pipe results into tools like `jq`.
+Parashu includes a powerful exploit matching engine that cross-references discovered vulnerabilities with known exploit scripts from Exploit-DB and other sources.
+
+### Syncing the Database
+To download the latest exploit metadata and scripts (requires internet):
+```bash
+parashu exploit sync
+```
+
+### Searching for Exploits
+Search the local database for specific keywords:
+```bash
+parashu exploit search apache 2.4.49
+```
+
+### Matching During Scans
+Automatically find matching exploits for discovered vulnerabilities:
+```bash
+parashu scan 192.168.1.10 --exploit-match
+```
+
+### Retrieving Exploit Code
+Get the details and local code path for a specific exploit:
+```bash
+parashu exploit get 16929
+```
+
+---
+
+## 🛡️ Advanced Red Team Implementation
+...

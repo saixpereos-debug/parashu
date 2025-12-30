@@ -36,10 +36,21 @@ Initialize the local vulnerability database (requires internet once):
 parashu db update
 ```
 
-### 3. Scan
+### 3. Sync Exploits (Optional)
+Equip Parashu with tens of thousands of exploit scripts:
+```bash
+parashu exploit sync
+```
+
+### 4. Scan
 **Quick Scan (Top 1000 ports):**
 ```bash
 parashu scan 192.168.1.10
+```
+
+**Vulnerability Scan with Exploit Matching:**
+```bash
+parashu scan 10.0.0.0/24 --exploit-match
 ```
 
 **CIDR Range Scan:**

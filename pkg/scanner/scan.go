@@ -140,7 +140,12 @@ func (s *Scanner) Scan(ctx context.Context, target string, ports []int) (output.
 
 // checkPort checks if a port is open and attempts banner grabbing
 func (s *Scanner) checkPort(target string, port int, timeout time.Duration) (bool, string) {
-	address := net.JoinHostPort(target, fmt.Sprintf("%d", port))
+	// Handle IPv6 literal consistency
+	host := target
+	if strings.Contains(target, ":") && !strings.HasPrefix(target, "[") {
+		host = "[" + target + "]"
+	}
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	var conn net.Conn
 	var err error
