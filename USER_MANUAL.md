@@ -1,6 +1,6 @@
-# Parashu User Manual
+# 🔱 Parashu User Manual
 
-Parashu is a high-performance, modern Go-based vulnerability scanner designed for environments where accuracy, speed, and offline capability are paramount. This manual covers all features and commands to ensure you get the most out of the tool.
+Parashu is a high-performance, modern Go-based vulnerability scanner designed for environments where accuracy, speed, and offline capability are paramount. It pairs active scanning with a local, highly-optimized vulnerability database.
 
 ---
 
@@ -11,195 +11,129 @@ To see all available commands, run:
 parashu --help
 ```
 
----
-
-## 🔍 Scanning Targets
-
-The `scan` command is the core of Parashu. It allows you to scan IPs, CIDR ranges, or hostnames.
-
-### Basic Scan
+### 📦 Installation
+If you have Go installed:
 ```bash
-parashu scan 192.168.1.1
-```
-
-### Scan with CIDR or List
-```bash
-parashu scan 10.0.0.0/24
-parashu scan host1.local,host2.local
-```
-
-### Scan from File
-Scan multiple targets from a text file (one target per line):
-```bash
-parashu scan -f targets.txt
+go install github.com/saixpereos-debug/parashu@latest
 ```
 
 ---
 
-## ⚙️ Scan Options
+## 💾 Database Setup (Offline Intel)
 
-### Port Selection
-Use the `--ports` flag to specify which ports to scan:
-- `top1000` (default): Most common 1000 ports.
-- `all`: All 65,535 ports.
-- `range`: e.g., `80-443`.
-- `list`: e.g., `22,80,443`.
+Parashu relies on a local database for instant, silent vulnerability and exploit lookups.
 
-```bash
-parashu scan 192.168.1.1 --ports 80,443,8080
-```
-
-### Scan Profiles
-Profiles adjust concurrency and timeouts for different scenarios:
-- `stealth`: Slow and quiet (avoids detection).
-- `balanced` (default): Good mix of speed and accuracy.
-- `aggressive`: Fast, but may be noisy or miss ports on unstable networks.
-
-```bash
-parashu scan 192.168.1.1 --profile stealth
-```
-
-### Advanced Performance Flags
-- `--timeout`: Set custom timeout per port (e.g., `2s`).
-- `--rate-limit`: Set concurrent connections limit (e.g., `100`).
-
----
-
-## 📊 Output Formats
-
-Parashu supports multiple output formats for easy integration or reporting.
-
-- `table` (default): Clean CLI table.
-- `json`: Structured data for automation.
-- `html`: Professional report for sharing with stakeholders.
-
-```bash
-parashu scan 192.168.1.1 --output html --output-file report.html
-```
-
----
-
-## 💾 Vulnerability Database
-
-Parashu uses a local SQLite database for offline CVE lookups.
-
-### Update Database
-Requires internet access to download the latest definitions:
+### 1. Vulnerability Definitions (CVE/CPE)
+Update the core vulnerability database:
 ```bash
 parashu db update
 ```
 
-### Check DB Status & Path
-```bash
-parashu db status
-parashu db path
-```
-
----
-
-## 🔧 Configuration Management
-
-You can save your preferred settings so you don't have to pass them every time.
-
-### Set a Config Value
-```bash
-parashu config set output json
-parashu config set ports all
-```
-
-### View Current Config
-```bash
-parashu config view
-parashu config path
-```
-
----
-
-## 🛑 Filtering & Exclusion
-
-Exclude specific targets from a scan:
-- `--exclude`: Comma-separated list.
-- `--exclude-file`: File with list of exclusions.
-
-```bash
-parashu scan 10.0.0.0/24 --exclude 10.0.0.1,10.0.0.2
-```
-
----
-
-## 🛡️ Stealth & Evasion (Advanced)
-
-New in v1.1.0: Advanced features to evade firewalls and IDS.
-
-### Ping Suppression
-Skip host discovery/resolution to avoid early detection:
-```bash
-parashu scan 192.168.1.1 -n
-# or
-parashu scan 192.168.1.1 --no-ping
-```
-
-### Advanced Timing (Nmap-style)
-Use shorthand timing profiles:
-- `-T0`: Paranoid (extremely slow, serial)
-- `-T1`: Sneaky
-- `-T2`: Polite
-- `-T3`: Normal (default)
-- `-T4`: Aggressive
-- `-T5`: Insane (very fast)
-
-```bash
-parashu scan 192.168.1.1 -T0
-```
-
-### Proxy Routing
-Route your scans through SOCKS5 proxies:
-```bash
-parashu scan 192.168.1.1 --proxies 127.0.0.1:9050
-```
-
-### Packet Padding (Evasion)
-Add extra data to your probe packets to evade length-based signatures:
-```bash
-parashu scan 192.168.1.1 --data-length 200
-```
-
-### Banners and Fallbacks
-- `--banners-only`: Only grab service banners, skip vulnerability lookups.
-- `--online-fallback`: Query online APIs if a service is not found in the local DB.
-- `--api-key`: Provide your API key for online enrichment.
-
----
-
-## 🛠️ Exploit Database Integration
-
-Parashu includes a powerful exploit matching engine that cross-references discovered vulnerabilities with known exploit scripts from Exploit-DB and other sources.
-
-### Syncing the Database
-To download the latest exploit metadata and scripts (requires internet):
+### 2. Exploit Database (Red Team Intel)
+Sync tens of thousands of exploit metadata from Exploit-DB:
 ```bash
 parashu exploit sync
 ```
 
-### Searching for Exploits
-Search the local database for specific keywords:
+---
+
+## 🔍 Scanning Targets
+
+The `scan` command is the flagship feature. It supports single targets, CIDRs, and lists.
+
+### Basic Usage
 ```bash
-parashu exploit search apache 2.4.49
+# Single Target
+parashu scan 192.168.1.1
+
+# CIDR Range (Automated expansion)
+parashu scan 10.0.0.0/24
+
+# Hostnames and Lists
+parashu scan host.internal,192.168.1.5,192.168.1.6
 ```
 
-### Matching During Scans
-Automatically find matching exploits for discovered vulnerabilities:
+### Advanced Scan Configuration
+| Flag | Description | Example |
+| :--- | :--- | :--- |
+| `--ports` | Specify ports (top1000, all, range, list) | `--ports 80,443,8080-8088` |
+| `--profile` | Concurrency/Timing (stealth, balanced, aggressive) | `--profile aggressive` |
+| `-f, --file` | Scan targets from a text file | `-f targets.txt` |
+| `--output` | report format (table, json, html) | `--output html` |
+| `--output-file`| Save results to a file | `--output-file scan.html` |
+
+---
+
+## 🛡️ Stealth & Evasion
+
+Designed for Red Teams, Parashu includes advanced logic to bypass IDS/IPS and Firewalls.
+
+### 1. Timing Profiles (Nmap Style)
+Control the speed and noise level of your scan:
+- `-T0` (Paranoid): Extremely slow, serial probes to bypass nearly all detection.
+- `-T1` (Sneaky): Slow and methodical.
+- `-T2` (Polite): Low-bandwidth, waits between probes.
+- `-T3` (Normal): The default balanced experience.
+- `-T4` (Aggressive): Fast, assumes a stable and noise-tolerant network.
+- `-T5` (Insane): Maximum speed, likely to be detected.
+
 ```bash
-parashu scan 192.168.1.10 --exploit-match
+parashu scan 192.168.1.10 -T1
 ```
 
-### Retrieving Exploit Code
-Get the details and local code path for a specific exploit:
+### 2. Evasion Tactics
+- **Ping Suppression (`-n` / `--no-ping`)**: Skip host discovery. Useful for targets protected by "silent" firewalls.
+- **Proxy Routing (`--proxies`)**: Route scans through SOCKS5 (e.g., Tor or SSH tunnels).
+- **Packet Padding (`--data-length`)**: Append random data to probes to bypass length-based signature detection.
+
 ```bash
-parashu exploit get 16929
+parashu scan 192.168.1.10 -n --proxies 127.0.0.1:9050 --data-length 150
 ```
 
 ---
 
-## 🛡️ Advanced Red Team Implementation
-...
+## 🕵️ Red Team: Layer Specific Scanning
+
+Beyond TCP/UDP port scanning, Parashu can perform specialized scans across the 7 OSI layers.
+
+### The `layer-scan` Command
+Use specialized logic for different attack surfaces:
+```bash
+parashu layer-scan --layer [name] --target [host]
+```
+
+| Layer | Focus | Detection Logic |
+| :--- | :--- | :--- |
+| `datalink` | VLANs/ARP | Detects trunking ports and VLAN tagging. |
+| `network` | IP/Fragmentation | Identifies IP fragmentation handling and IPv6 capabilities. |
+| `transport` | TCP/UDP Anomalies | Scans using ACK/FIN/NULL probes to find filtered ports. |
+| `application`| Software Services | Detects SSO endpoints, Docker APIs, and K8s clusters. |
+
+---
+
+## 💣 Exploit Intelligence
+
+Parashu doesn't just find vulnerabilities; it provides the intel to exploit them.
+
+### Automated Exploit Matching
+During any scan, use the `--exploit-match` flag to cross-reference discovered services with local exploits:
+```bash
+parashu scan 192.168.1.50 --exploit-match
+```
+
+### The `exploit` Subcommand
+- **Search**: `parashu exploit search wordpress 5.x`
+- **Retrieve**: `parashu exploit get 16929` (Returns metadata and local code path)
+- **Priority**: Exploits are automatically ranked by **Verification**, **Metasploit availability**, and **Recency**.
+
+---
+
+## 💡 Pro Tips
+
+1. **Automation**: Use `--output json` and pipe into `jq` to build custom reporting streams.
+2. **Persistence**: Use `parashu config set` to save your API keys and default profiles.
+3. **Quiet Mode**: For maximum stealth, use `-T0 -n --banners-only`. This avoids vulnerability lookups and keeps traffic to a minimum.
+
+---
+
+*Parashu - Precise. Silent. Deadly.*
