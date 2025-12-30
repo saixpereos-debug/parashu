@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"parashu/internal/adaptive"
-	"parashu/internal/fingerprint"
-	"parashu/internal/output"
+	"parashu/pkg/fingerprint"
+	"parashu/pkg/output"
 
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/errgroup"

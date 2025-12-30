@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"parashu/internal/adaptive"
-	"parashu/internal/output"
-	"parashu/internal/scanner"
+	"parashu/pkg/output"
+	"parashu/pkg/scanner"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
