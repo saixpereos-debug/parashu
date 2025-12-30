@@ -182,19 +182,33 @@ detects services, and identifies vulnerabilities using the local offline databas
 
 		// Match exploits if requested
 		if exploitMatchFlag {
-			fmt.Println("\n[+] Matching discovered vulnerabilities with known exploits...")
+			fmt.Println("\n[★] Matching discovered vulnerabilities with known exploits...")
 			db, err := vuln.NewDB()
 			if err == nil {
 				defer db.Close()
 				matcher := exploit.NewExploitMatcher(db)
+				found := false
 				for _, hostRes := range fullResult.Results {
 					matches, _ := matcher.MatchExploits(hostRes)
 					if len(matches) > 0 {
-						fmt.Printf("\nExploit Matches for %s:\n", hostRes.IP)
+						found = true
+						fmt.Printf("\n    Target: %s\n", hostRes.IP)
 						for _, m := range matches {
-							fmt.Printf("  - %s (Priority: %d, Match: %s)\n", m.Exploit.Title, m.Priority, m.Match.Evidence)
+							priorityColor := "\033[32m" // Green
+							if m.Priority > 80 {
+								priorityColor = "\033[1;31m" // Bold Red
+							} else if m.Priority > 60 {
+								priorityColor = "\033[31m" // Red
+							} else if m.Priority > 40 {
+								priorityColor = "\033[33m" // Yellow
+							}
+							fmt.Printf("    [%sRank: %d\033[0m] %s\n", priorityColor, m.Priority, m.Exploit.Title)
+							fmt.Printf("               Evidence: %s\n", m.Match.Evidence)
 						}
 					}
+				}
+				if !found {
+					fmt.Println("    No matching exploits identified in local database.")
 				}
 			}
 		}

@@ -1,72 +1,4 @@
-package output
 
-import (
-	"encoding/json"
-	"fmt"
-	"html/template"
-	"io"
-
-	"github.com/rodaine/table"
-)
-
-// Writer defines the interface for output formatters
-type Writer interface {
-	Write(result *ScanResult, w io.Writer) error
-}
-
-// NewWriter returns a Writer based on the format string
-func NewWriter(format string) (Writer, error) {
-	switch format {
-	case "json":
-		return &JSONWriter{}, nil
-	case "table":
-		return &TableWriter{}, nil
-	case "html":
-		return &HTMLWriter{}, nil
-	default:
-		return nil, fmt.Errorf("unknown output format: %s", format)
-	}
-}
-
-// JSONWriter implements JSON output
-type JSONWriter struct{}
-
-func (jw *JSONWriter) Write(result *ScanResult, w io.Writer) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(result)
-}
-
-// TableWriter implements Table output
-type TableWriter struct{}
-
-func (tw *TableWriter) Write(result *ScanResult, w io.Writer) error {
-	tbl := table.New("IP", "Port", "Service", "Version", "Vulns", "Risk")
-
-	for _, host := range result.Results {
-		for _, port := range host.Ports {
-			vulnCount := len(port.Vulnerabilities)
-			tbl.AddRow(host.IP, port.Port, port.Service, port.Version, vulnCount, port.RiskScore)
-		}
-	}
-	tbl.Print() // Note: rodaine/table output handling is slightly different, usually prints to stdout.
-	// To strictly use 'w', we might need a different table lib or SetOutput if supported.
-	// rodaine/table v1.3.0 supports tbl.WithWriter(w)
-	return nil
-}
-
-// HTMLWriter implements HTML output
-type HTMLWriter struct{}
-
-func (hw *HTMLWriter) Write(result *ScanResult, w io.Writer) error {
-	tmpl, err := template.New("report").Parse(htmlTemplate)
-	if err != nil {
-		return err
-	}
-	return tmpl.Execute(w, result)
-}
-
-const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,77 +110,33 @@ const htmlTemplate = `
                 <h1>Parashu</h1>
                 <span style="color: var(--text-dim)">Professional Vulnerability Report</span>
             </div>
-            <span class="badge">SCAN ID: {{.ScanID}}</span>
+            <span class="badge">SCAN ID: scan-1767077816</span>
         </header>
 
         <div class="summary-grid">
             <div class="stat-card">
-                <span class="stat-value">{{.Summary.HostsScanned}}</span>
+                <span class="stat-value">1</span>
                 <span class="stat-label">Hosts</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value" style="color: var(--primary)">{{.Summary.OpenPorts}}</span>
+                <span class="stat-value" style="color: var(--primary)">0</span>
                 <span class="stat-label">Open Ports</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value" style="color: var(--warning)">{{.Summary.VulnerableServices}}</span>
+                <span class="stat-value" style="color: var(--warning)">0</span>
                 <span class="stat-label">Vulnerable</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value" style="color: var(--danger)">{{.Summary.CriticalVulns}}</span>
+                <span class="stat-value" style="color: var(--danger)">0</span>
                 <span class="stat-label">Critical</span>
             </div>
         </div>
 
-        {{range .Results}}
-        <div class="host-section">
-            <div class="host-header">
-                <h2>Host: <span class="ip">{{.IP}}</span> {{if .Hostname}}− {{.Hostname}}{{end}}</h2>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Port</th>
-                        <th>Service</th>
-                        <th>Risk</th>
-                        <th>Vulnerabilities</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Ports}}
-                    <tr>
-                        <td><span class="port">{{.Port}}/{{.Protocol}}</span></td>
-                        <td>
-                            <div class="service">{{.Service}}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-dim)">{{.Version}}</div>
-                        </td>
-                        <td>
-                            <span class="{{if gt .RiskScore 8.0}}risk-high{{else if gt .RiskScore 5.0}}risk-med{{else}}risk-low{{end}}">
-                                ★ {{.RiskScore}}
-                            </span>
-                        </td>
-                        <td>
-                            {{range .Vulnerabilities}}
-                            <div class="vuln-item {{if .KEV}}critical{{end}}">
-                                <span class="vuln-id">{{.CVE}}</span>
-                                <span class="vuln-score">{{.CVSS}}</span>
-                                <span class="vuln-summary">{{.Summary}}</span>
-                            </div>
-                            {{else}}
-                                <span style="color: var(--text-dim); font-style: italic">No vulnerabilities identified</span>
-                            {{end}}
-                        </td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
-        {{end}}
+        
 
         <footer>
-            Generated by Parashu on {{.Timestamp}} &middot; Offline-First Red Team Intel
+            Generated by Parashu on 2025-12-30 01:56:56.859264196 -0500 EST m=&#43;0.003845114 &middot; Offline-First Red Team Intel
         </footer>
     </div>
 </body>
 </html>
-`

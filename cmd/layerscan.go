@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rodaine/table"
 	"github.com/saixpereos-debug/parashu/pkg/layers"
 
 	"github.com/spf13/cobra"
@@ -38,8 +39,11 @@ with advanced evasion and red teaming capabilities.`,
 		}
 		target := args[0]
 
-		fmt.Printf("Starting Red Team Layer Scan on %s (Layer: %s, Evasion: %d)...\n",
-			target, layerNameFlag, evasionLevelFlag)
+		fmt.Printf("\n[➤] Initiating Red Team Layer Scan\n")
+		fmt.Printf("    Target:   %s\n", target)
+		fmt.Printf("    Layer:    %s\n", layerNameFlag)
+		fmt.Printf("    Evasion:  Level %d\n", evasionLevelFlag)
+		fmt.Printf("    Time:     %s\n\n", time.Now().Format(time.RFC822))
 
 		cfg := layers.ScanConfig{
 			Target:       target,
@@ -60,20 +64,50 @@ with advanced evasion and red teaming capabilities.`,
 		// Find Scanner
 		scanner, ok := scannerRegistry[layerNameFlag]
 		if !ok {
-			fmt.Printf("Error: No scanner implemented for layer %s yet.\n", layerNameFlag)
+			fmt.Printf("[-] Error: No scanner implemented for layer %s yet.\n", layerNameFlag)
 			return
 		}
 
+		start := time.Now()
 		result, err := scanner.Scan(cmd.Context(), cfg)
+		duration := time.Since(start)
+
 		if err != nil {
-			fmt.Printf("Error during scan: %v\n", err)
+			fmt.Printf("[X] Error during scan: %v\n", err)
 			return
 		}
 
-		fmt.Printf("Scan completed with status: %s\n", result.Status)
-		for _, finding := range result.Findings {
-			fmt.Printf("[%s] %s: %s\n", finding.Severity, finding.ID, finding.Summary)
+		fmt.Printf("[✓] Scan completed in %s. Status: %s\n\n", duration, result.Status)
+
+		if len(result.Findings) == 0 {
+			fmt.Println("    No findings identified for this layer.")
+			return
 		}
+
+		tbl := table.New("ID", "SEVERITY", "SUMMARY")
+		tbl.WithHeaderFormatter(func(format string, vals ...interface{}) string {
+			return fmt.Sprintf("\033[1;36m"+format+"\033[0m", vals...)
+		})
+
+		for _, finding := range result.Findings {
+			sev := finding.Severity
+			color := "\033[0m" // Default
+			switch sev {
+			case "CRITICAL":
+				color = "\033[1;31m" // Bold Red
+			case "HIGH":
+				color = "\033[31m" // Red
+			case "MEDIUM":
+				color = "\033[33m" // Yellow
+			case "LOW":
+				color = "\033[32m" // Green
+			case "INFO":
+				color = "\033[34m" // Blue
+			}
+			tbl.AddRow(finding.ID, color+sev+"\033[0m", finding.Summary)
+		}
+		tbl.Print()
+		fmt.Println()
 	},
 }
 
