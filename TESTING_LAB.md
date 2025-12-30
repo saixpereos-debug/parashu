@@ -8,14 +8,24 @@ To test Parashu's advanced evasion features at their "full potential," you need 
 
 The most effective way to test is using **Docker** or **VMs** (e.g., VirtualBox) to simulate a network boundary.
 
-### Recommended Tool: Suricata
-Suricata is the industry standard for open-source IPS in 2025. It handles multi-threading and deep packet inspection (DPI) better than classic Snort.
+### IPS/IDS Powerhouse: Suricata
+Suricata is the industry standard for open-source IPS/IDS in 2025. It handles multi-threading and deep packet inspection (DPI) better than classic Snort.
 
-**Setup with Docker:**
+**Setup with Docker (IDS Mode):**
+To run as an IDS (passive monitoring, generate alerts but do not block):
 ```bash
 docker run --rm -it --net=host \
   --cap-add=NET_ADMIN --cap-add=NET_RAW \
   jasonish/suricata:latest
+```
+
+### Classic Signature-Based IDS: Snort
+For those who want a classic, rule-heavy IDS experience. Use Snort to test how specific packet signatures (like "TCP Portsweep") are triggered.
+
+**Setup with Docker:**
+```bash
+docker run --rm -it --net=host \
+  lscr.io/linuxserver/snort:latest
 ```
 
 ---
@@ -52,9 +62,22 @@ Firewalls often block or log ICMP (Ping) packets. If you ping first, you've alre
   ```
 - **IPS Behavior**: By skipping the discovery phase, you avoid triggering "ICMP sweep" alerts. The scanner goes straight to the port, appearing as an isolated (and potentially accidental) connection attempt.
 
+## 🔍 3. IDS vs. IPS: Testing the Difference
+
+Understanding the difference is key to a real-world assessment:
+
+- **IDS (Intrusion Detection System)**: Passive. It sits on a span/mirror port, watches traffic, and logs an alert. It **does not stop** your scan.
+- **IPS (Intrusion Prevention System)**: Active. It sits inline, intercepts packets, and **drops/rejects** them if they match a rule.
+
+### Testing Detection (IDS)
+Focus on **Alert Generation**. Use `-T4` or `-T5` to intentionally trigger "Fast Scan" rules, then check the logs to see what was captured.
+
+### Testing Prevention (IPS)
+Focus on **Bypassing Blocks**. If an IPS is blocking your IP after 10 probes, switch to `-T0` or use `--proxies` to see if you can complete a full 1000-port scan successfully.
+
 ---
 
-## 🔍 3. Advanced Integration: Zeek for Behavioral Analysis
+## � 4. Advanced Integration: Zeek for Behavioral Analysis
 
 While Suricata uses signatures, **Zeek** (formerly Bro) analyzes *behavior*. 
 
